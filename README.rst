@@ -20,6 +20,12 @@ Requirements
 
     sudo -H pip3 install -r requirements.txt
 
+- make sure to have the **gfortran** compiler and **mpi** installed::
+  
+    sudo apt-get install gfortran
+    sudo apt-get install openmpi-bin libopenmpi-dev
+
+
 Installing library
 ******************
 
