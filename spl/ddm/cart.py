@@ -217,12 +217,16 @@ class Cart():
         
         cart = Cart(self.npts, self.pads, self.periods, self.reorder, self.comm)
          
-        # Start/end values of global indices (without ghost regions)
+        
         coords = cart.coords 
         nprocs = cart.nprocs 
+        
+        # Recalculate start/end values of global indices (without ghost regions)
         starts = tuple(s if axis != i or self.periods[i] else 0 if s==0 else s-1  for i,s in enumerate(cart._starts))
         ends   = tuple(e if axis != i or self.periods[i] else e-1  for i,e in enumerate(cart._ends))
         
+        # set pads 
+        cart._pads = tuple(p - 1 if axis == i else p for i,p in enumerate(self.pads))
         
         cart._starts = starts
         cart._ends   = ends
