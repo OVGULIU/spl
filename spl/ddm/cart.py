@@ -207,6 +207,65 @@ class Cart():
 
         return info
 
+    #------------------------------------------------------------------------------
+    def reduce( self, axis):
+
+        # Check input arguments
+        # TODO: check that arguments are identical across all processes
+
+        assert(axis<self.ndims)
+        
+        cart = Cart(self.npts, self.pads, self.periods, self.reorder, self.comm)
+         
+        # Start/end values of global indices (without ghost regions)
+        coords = cart.coords 
+        nprocs = cart.nprocs 
+        starts = tuple(s if axis != i or self.periods[i] else 0 if s==0 else s-1  for i,s in enumerate(cart._starts))
+        ends   = tuple(e if axis != i or self.periods[i] else e-1  for i,e in enumerate(cart._ends))
+        
+        
+        cart._starts = starts
+        cart._ends   = ends
+
+        # List of 1D global indices (without ghost regions)
+        cart._grids = tuple( range(s,e+1) for s,e in zip( cart._starts, cart._ends ) )
+
+        # N-dimensional global indices (without ghost regions)
+        cart._indices = product( *self._grids )
+
+        # Compute shape of local arrays in topology (with ghost regions)
+        cart._shape = tuple( e-s+1+2*p for s,e,p in zip( cart._starts, cart._ends, cart._pads ) )
+
+        # Extended grids with ghost regions
+        cart._extended_grids = tuple( range(s-p,e+p+1) for s,e,p in zip( cart._starts, cart._ends, cart._pads ) )
+
+        # N-dimensional global indices with ghost regions
+        cart._extended_indices = product( *cart._extended_grids )
+
+        # Create (N-1)-dimensional communicators within the cartsian topology
+        cart._subcomm = [None]*cart._ndims
+        for i in range(cart._ndims):
+            remain_dims     = [i==j for j in range( cart._ndims )]
+            cart._subcomm[i] = cart._comm_cart.Sub( remain_dims )
+
+        # Compute/store information for communicating with neighbors
+        cart._shift_info = {}
+        for dimension in range( cart._ndims ):
+            for disp in [-1,1]:
+                cart._shift_info[ dimension, disp ] = \
+                        cart._compute_shift_info( dimension, disp )
+
+        # Store arrays with all the starts and ends along each direction
+        cart._global_starts = [None]*cart._ndims
+        cart._global_ends   = [None]*cart._ndims
+        for dimension in range( cart._ndims ):
+            n =     npts[dimension]
+            d = mpi_dims[dimension]
+            cart._global_starts[dimension] = np.array( [( c   *n)//d   for c in range( d )] )
+            cart._global_ends  [dimension] = np.array( [((c+1)*n)//d-1 for c in range( d )] )
+
+        return cart
+        
     #---------------------------------------------------------------------------
     def __del__(self):
 
